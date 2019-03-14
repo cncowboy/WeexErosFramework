@@ -3,6 +3,9 @@ package com.eros.framework.event;
 import android.Manifest;
 import android.content.Context;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import com.alibaba.fastjson.JSON;
 import com.eros.framework.constant.WXEventCenter;
 import com.eros.framework.manager.ManagerFactory;
@@ -24,17 +27,18 @@ import java.util.List;
 
 public class EventCommunication extends EventGate {
     private JSCallback mContactsCallBack;
+    private JSCallback mSmsCallBack;
 
     @Override
     public void perform(Context context, WeexEventBean weexEventBean, String type) {
         if (WXEventCenter.EVENT_COMMUNICATION_SMS.equals(type)) {
-            sms(weexEventBean.getExpand().toString(), weexEventBean.getJsParams(), context);
+            sms(weexEventBean.getExpand().toString(), weexEventBean.getJsParams(), context, weexEventBean.getJscallback());
         } else if (WXEventCenter.EVENT_COMMUNICATION_CONTACTS.equals(type)) {
             contacts(context, weexEventBean.getJscallback());
         }
     }
 
-    public void sms(String recipients, String params, final Context context) {
+    public void sms(String recipients, String params, final Context context, JSCallback callback) {
         List<String> rec = JSON.parseArray(recipients, String.class);
         StringBuilder smsList = new StringBuilder();
         for (int i = 0; i < rec.size(); i++) {
@@ -43,6 +47,8 @@ public class EventCommunication extends EventGate {
             }
             smsList.append(rec.get(i));
         }
+        mSmsCallBack = callback;
+        ManagerFactory.getManagerService(DispatchEventManager.class).getBus().register(this);
         CommunicationManager routerManager = ManagerFactory.getManagerService(CommunicationManager.class);
         routerManager.sms(smsList.toString(), params, context);
     }
@@ -59,8 +65,23 @@ public class EventCommunication extends EventGate {
 
     @Subscribe
     public void contactsResult(AxiosResultBean uploadResultBean) {
-        if (uploadResultBean != null && mContactsCallBack != null) {
-            mContactsCallBack.invoke(uploadResultBean);
+        if (uploadResultBean == null || uploadResultBean.header == null) {
+            return;
+        }
+        try {
+            JSONObject jsObj = new JSONObject( uploadResultBean.header.toString() );
+            final Object meta = jsObj.get("meta");
+            if (meta.toString().equals("sms")) {
+                if (mSmsCallBack != null) {
+                    mSmsCallBack.invoke(uploadResultBean);
+                }
+            } else {
+                if (mContactsCallBack != null) {
+                    mContactsCallBack.invoke(uploadResultBean);
+                }
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
         }
         ManagerFactory.getManagerService(DispatchEventManager.class).getBus().unregister(this);
     }
