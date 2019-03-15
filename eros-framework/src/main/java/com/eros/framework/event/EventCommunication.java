@@ -45,14 +45,17 @@ public class EventCommunication extends EventGate {
     private String mRecipients = "";
     private SendReceiver mSendReceiver;
     private DeliverReceiver mDeliverReceiver;
-    EventCommunication self;
+    private EventCommunication self;
+    private long mStartTimeOfShare2Msg = 0;
+    private long mStartTimeOfShare2MsgTemp = 0;
+    private long mRecvContentObserverCount = -1;
 
     @Override
     public void perform(Context context, WeexEventBean weexEventBean, String type) {
         mContext = context;
         if (WXEventCenter.EVENT_COMMUNICATION_SMS.equals(type)) {
-            //sms(weexEventBean.getExpand().toString(), weexEventBean.getJsParams(), context, weexEventBean.getJscallback());
-            sendSMS(weexEventBean.getExpand().toString(), weexEventBean.getJsParams(), context, weexEventBean.getJscallback());
+            sms(weexEventBean.getExpand().toString(), weexEventBean.getJsParams(), context, weexEventBean.getJscallback());
+            //sendSMS(weexEventBean.getExpand().toString(), weexEventBean.getJsParams(), context, weexEventBean.getJscallback());
         } else if (WXEventCenter.EVENT_COMMUNICATION_CONTACTS.equals(type)) {
             contacts(context, weexEventBean.getJscallback());
         }
@@ -71,7 +74,10 @@ public class EventCommunication extends EventGate {
         mSmsCallBack = callback;
         self = this;
 
-        registerSendReceiver();
+        mStartTimeOfShare2Msg = System.currentTimeMillis();
+        mRecvContentObserverCount = 0;
+        mStartTimeOfShare2MsgTemp = -1;
+        registerContentObserver();
 
         ManagerFactory.getManagerService(DispatchEventManager.class).getBus().register(this);
         CommunicationManager routerManager = ManagerFactory.getManagerService(CommunicationManager.class);
@@ -100,7 +106,7 @@ public class EventCommunication extends EventGate {
                 if (mSmsCallBack != null) {
                     mSmsCallBack.invoke(uploadResultBean);
                 }
-                mContext.unregisterReceiver(mSendReceiver);
+                unRegisterContentObserver();
             } else {
                 if (mContactsCallBack != null) {
                     mContactsCallBack.invoke(uploadResultBean);
@@ -122,25 +128,27 @@ public class EventCommunication extends EventGate {
             @Override
             public void onChange(boolean selfChange, Uri uri) {
                 super.onChange(selfChange, uri);
-                Cursor cursor = mContext.getContentResolver().query(Uri.parse("content://sms/outbox"),
-                        null, null, null, null);
-                //遍历查询得到的结果集，即可获取用户正在发送的短信
-                while(cursor.moveToNext()){
-                    String address = cursor.getString(cursor.getColumnIndex("address"));
-                    if (address.equals(mRecipients)) {
-                        AxiosResultBean resultBean = new AxiosResultBean();
-                        resultBean.status = 0;
-                        resultBean.errorMsg = "";
-                        mSmsCallBack.invoke(resultBean);
-                        ManagerFactory.getManagerService(DispatchEventManager.class).getBus().unregister(self);
-                        mContext.getContentResolver().unregisterContentObserver(mContentObserver);
-                        break;
-                    }
+                mRecvContentObserverCount++;
+                long endTimeOfShare2Msg = System.currentTimeMillis();
+                long dt = endTimeOfShare2Msg - mStartTimeOfShare2Msg;
+                if ((mStartTimeOfShare2Msg != mStartTimeOfShare2MsgTemp && mRecvContentObserverCount > 2) && dt <= 20000) {//用户触发短信分享动作并在20s内有短信发出，就认定是短信发送成功。
+                    mStartTimeOfShare2MsgTemp = mStartTimeOfShare2Msg;
+
+                    AxiosResultBean resultBean = new AxiosResultBean();
+                    resultBean.status = 0;
+                    resultBean.errorMsg = "";
+                    mSmsCallBack.invoke(resultBean);
+
+                    ManagerFactory.getManagerService(DispatchEventManager.class).getBus().unregister(self);
+                    unRegisterContentObserver();
                 }
-                cursor.close();
             }
         };
         mContext.getContentResolver().registerContentObserver(uri, true, mContentObserver);
+    }
+
+    private void unRegisterContentObserver() {
+        mContext.getContentResolver().unregisterContentObserver(mContentObserver);
     }
 
     private void sendSMS(String recipients, String params, final Context context, JSCallback callback) {
