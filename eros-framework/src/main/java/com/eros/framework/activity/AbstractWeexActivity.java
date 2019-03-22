@@ -718,6 +718,16 @@ public class AbstractWeexActivity extends AppCompatActivity implements IWXRender
             readContractResult(data);
         }
         /**
+         * 发送短信返回
+         */
+        if (requestCode == Constant.REQUEST_CODE.REQUEST_CODE_SMS) {
+            if (requestCode == RESULT_OK) {
+                readSmsResult(data);
+            } else {
+                sendSmsCancel();
+            }
+        }
+        /**
          * 照片拍摄返回
          */
         if (resultCode == RESULT_OK && requestCode == ImagePicker.REQUEST_CODE_TAKE) {
@@ -779,6 +789,7 @@ public class AbstractWeexActivity extends AppCompatActivity implements IWXRender
         AxiosResultBean resultBean = new AxiosResultBean();
         resultBean.status = 0;
         resultBean.data = json;
+        resultBean.header = packCommunicationHeader("contacts");
 
         DispatchEventManager dispatchEventManager = ManagerFactory.getManagerService
                 (DispatchEventManager.class);
@@ -795,6 +806,39 @@ public class AbstractWeexActivity extends AppCompatActivity implements IWXRender
             e.printStackTrace();
         }
         return jsonObject.toString();
+    }
+
+    private String packCommunicationHeader (String meta) {
+        JSONObject jsonObject = new JSONObject();
+        try {
+            jsonObject.put("meta", meta);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return jsonObject.toString();
+    }
+
+    private void readSmsResult(Intent data) {
+        AxiosResultBean resultBean = new AxiosResultBean();
+        resultBean.status = 0;
+        resultBean.errorMsg = "Sended";
+        resultBean.header = packCommunicationHeader("sms");
+
+        DispatchEventManager dispatchEventManager = ManagerFactory.getManagerService
+                (DispatchEventManager.class);
+        dispatchEventManager.getBus().post(resultBean);
+        Log.d("AbstractWeexActivity", "handleDecodeInternally");
+    }
+
+    private void sendSmsCancel() {
+        AxiosResultBean resultBean = new AxiosResultBean();
+        resultBean.status = 3;
+        resultBean.errorMsg = "Cancelled";
+        resultBean.header = packCommunicationHeader("sms");
+
+        DispatchEventManager dispatchEventManager = ManagerFactory.getManagerService
+                (DispatchEventManager.class);
+        dispatchEventManager.getBus().post(resultBean);
     }
 
     /**
