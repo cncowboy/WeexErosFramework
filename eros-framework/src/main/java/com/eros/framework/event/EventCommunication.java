@@ -71,7 +71,6 @@ public class EventCommunication extends EventGate {
         mStartTimeOfShare2Msg = System.currentTimeMillis();
         mRecvContentObserverCount = 0;
         mStartTimeOfShare2MsgTemp = -1;
-        registerContentObserver();
 
         ManagerFactory.getManagerService(DispatchEventManager.class).getBus().register(this);
         CommunicationManager routerManager = ManagerFactory.getManagerService(CommunicationManager.class);
@@ -100,7 +99,6 @@ public class EventCommunication extends EventGate {
                 if (mSmsCallBack != null) {
                     mSmsCallBack.invoke(uploadResultBean);
                 }
-                unRegisterContentObserver();
             } else {
                 if (mContactsCallBack != null) {
                     mContactsCallBack.invoke(uploadResultBean);
