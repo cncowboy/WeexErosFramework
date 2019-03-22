@@ -112,37 +112,4 @@ public class EventCommunication extends EventGate {
         ManagerFactory.getManagerService(DispatchEventManager.class).getBus().unregister(this);
     }
 
-    /**
-     * 注册短信观察者，实现短信发送成功的回调
-     */
-    private void registerContentObserver() {
-        Uri uri = Uri.parse("content://sms/");
-        final EventCommunication self = this;
-        mContentObserver = new ContentObserver(new Handler()) {
-            @Override
-            public void onChange(boolean selfChange, Uri uri) {
-                super.onChange(selfChange, uri);
-                mRecvContentObserverCount++;
-                long endTimeOfShare2Msg = System.currentTimeMillis();
-                long dt = endTimeOfShare2Msg - mStartTimeOfShare2Msg;
-                if ((mStartTimeOfShare2Msg != mStartTimeOfShare2MsgTemp && mRecvContentObserverCount > 2) && dt <= 20000) {//用户触发短信分享动作并在20s内有短信发出，就认定是短信发送成功。
-                    mStartTimeOfShare2MsgTemp = mStartTimeOfShare2Msg;
-
-                    AxiosResultBean resultBean = new AxiosResultBean();
-                    resultBean.status = 0;
-                    resultBean.errorMsg = "";
-                    mSmsCallBack.invoke(resultBean);
-
-                    ManagerFactory.getManagerService(DispatchEventManager.class).getBus().unregister(self);
-                    unRegisterContentObserver();
-                }
-            }
-        };
-        //mContext.getContentResolver().registerContentObserver(uri, true, mContentObserver);
-    }
-
-    private void unRegisterContentObserver() {
-        //mContext.getContentResolver().unregisterContentObserver(mContentObserver);
-    }
-
 }
