@@ -5,8 +5,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.database.ContentObserver;
-import android.database.Cursor;
 import android.os.Handler;
 import android.net.Uri;
 
@@ -36,13 +34,9 @@ import java.util.ArrayList;
 public class EventCommunication extends EventGate {
     private JSCallback mContactsCallBack;
     private JSCallback mSmsCallBack;
-    private ContentObserver mContentObserver;
     private Context mContext;
     private String mRecipients = "";
     private EventCommunication self;
-    private long mStartTimeOfShare2Msg = 0;
-    private long mStartTimeOfShare2MsgTemp = 0;
-    private long mRecvContentObserverCount = -1;
 
     @Override
     public void perform(Context context, WeexEventBean weexEventBean, String type) {
@@ -67,10 +61,6 @@ public class EventCommunication extends EventGate {
         }
         mSmsCallBack = callback;
         self = this;
-
-        mStartTimeOfShare2Msg = System.currentTimeMillis();
-        mRecvContentObserverCount = 0;
-        mStartTimeOfShare2MsgTemp = -1;
 
         ManagerFactory.getManagerService(DispatchEventManager.class).getBus().register(this);
         CommunicationManager routerManager = ManagerFactory.getManagerService(CommunicationManager.class);
